@@ -9,6 +9,9 @@ import json
 import os
 import locale
 
+# --- 프로그램 버전 ---
+APP_VERSION = "v1.0.1"
+
 # --- 다국어 사전 ---
 LANG_DATA = {
     "한국어": {
@@ -35,8 +38,8 @@ LANG_DATA = {
         "btn_pause": "프로그램 일시정지",
         "btn_resume": "프로그램 재개",
         "tip_pick": "1초 뒤 마우스의 좌표를 찾습니다.\n원하는 위치에 이동하세요.",
-        "tip_speed": "숫자와 소수점만 입력 가능\n예: 0.1",
-        "tip_random": "숫자와 소수점만 입력 가능\n기본 간격에 무작위 시간을 더합니다."
+        "tip_speed": "숫자를 입력하세요 (예: 0.1)\n잘못 입력시 기본값(0.1)으로 작동",
+        "tip_random": "숫자를 입력하세요 (예: 0.1)\n기본 간격에 무작위 시간을 더합니다."
     },
     "English": {
         "title": "Resd AutoMouse",
@@ -62,8 +65,8 @@ LANG_DATA = {
         "btn_pause": "Pause Program",
         "btn_resume": "Resume Program",
         "tip_pick": "Finds coordinates after 1 second.\nMove to desired position.",
-        "tip_speed": "Numbers only.\ne.g., 0.1",
-        "tip_random": "Numbers only.\nAdds random time to base interval."
+        "tip_speed": "Enter number (e.g. 0.1)\nDefaults to 0.1 if invalid",
+        "tip_random": "Enter number.\nAdds random time to base interval."
     },
     "日本語": {
         "title": "Resd オートマウス",
@@ -89,8 +92,8 @@ LANG_DATA = {
         "btn_pause": "プログラム一時停止",
         "btn_resume": "プログラム再開",
         "tip_pick": "1秒後に座標を取得します。\n希望の位置へ移動してください。",
-        "tip_speed": "数字のみ入力可能\n例: 0.1",
-        "tip_random": "数字のみ入力可能"
+        "tip_speed": "数値を入力 (例: 0.1)\n無効な場合は0.1になります",
+        "tip_random": "数値を入力"
     },
     "中文": {
         "title": "Resd 自动连点器",
@@ -116,8 +119,8 @@ LANG_DATA = {
         "btn_pause": "暂停程序",
         "btn_resume": "恢复程序",
         "tip_pick": "1秒后获取坐标。\n请移动到目标位置。",
-        "tip_speed": "仅限数字\n例如: 0.1",
-        "tip_random": "仅限数字"
+        "tip_speed": "请输入数字 (如: 0.1)\n无效时默认为0.1",
+        "tip_random": "请输入数字"
     }
 }
 
@@ -136,7 +139,7 @@ class ConfigManager:
             "fixed_pos_enabled": False,
             "fixed_x": "0",
             "fixed_y": "0",
-            "geometry": None # [New] 창 위치 저장용
+            "geometry": None
         }
 
     def load(self):
@@ -199,7 +202,7 @@ class ModernAutoClicker:
         self.config_mgr = ConfigManager()
         self.config = self.config_mgr.load()
         
-        # [New] 저장된 창 위치 불러오기
+        # 창 위치 불러오기
         saved_geo = self.config.get("geometry")
         if saved_geo:
             try:
@@ -242,14 +245,9 @@ class ModernAutoClicker:
         self.var_fixed_x = tk.StringVar(value=self.config.get("fixed_x", "0"))
         self.var_fixed_y = tk.StringVar(value=self.config.get("fixed_y", "0"))
 
-        self.vcmd_float = (self.root.register(self.validate_float), '%P')
-        self.vcmd_int = (self.root.register(self.validate_int), '%P')
-
-        # --- 스타일 설정 (Modern Flat Design) ---
+        # --- 스타일 설정 ---
         style = ttk.Style()
         style.theme_use('clam')
-        
-        # 공통 배경
         style.configure("TFrame", background="white")
         style.configure("TLabel", background="white", font=("Malgun Gothic", 10))
         style.configure("TButton", font=("Malgun Gothic", 9))
@@ -257,41 +255,24 @@ class ModernAutoClicker:
         style.configure("TLabelframe", background="white")
         style.configure("TLabelframe.Label", background="white", font=("Malgun Gothic", 10, "bold"), foreground="#4a90e2")
         
-        # [New] 콤보박스 디자인 현대화
         style.map('TCombobox', 
-                  fieldbackground=[('readonly', 'white')], # 평소 배경 흰색
-                  selectbackground=[('readonly', 'white')], # 선택 시 파란 배경 제거
-                  selectforeground=[('readonly', 'black')]) # 선택 시 글자 검정 유지
+                  fieldbackground=[('readonly', 'white')], 
+                  selectbackground=[('readonly', 'white')], 
+                  selectforeground=[('readonly', 'black')])
         
         style.configure("TCombobox", 
-                        arrowsize=12,          # 화살표 크기 키움
-                        background="white",    # 화살표 버튼 배경
-                        arrowcolor="#555555",  # 화살표 색상 (진한 회색)
-                        relief="flat",         # 3D 입체감 제거 (평평하게)
-                        borderwidth=1,         # 테두리 얇게
-                        padding=5)             # 내부 여백 추가
+                        arrowsize=12,
+                        background="white",
+                        arrowcolor="#555555",
+                        relief="flat",
+                        borderwidth=1,
+                        padding=5)
 
         self.create_widgets()
         self.apply_language()
         self.apply_topmost()
         self.start_threads()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
-
-        # [New] 빈 곳 클릭 시 포커스 해제 (하이라이트 제거용)
-        self.root.bind("<Button-1>", lambda event: self.root.focus_set())
-
-    def validate_float(self, P):
-        if P == "" or P == ".": return True
-        try:
-            float(P)
-            return True
-        except ValueError:
-            return False
-
-    def validate_int(self, P):
-        if P == "": return True
-        if P.isdigit(): return True
-        return False
 
     def create_widgets(self):
         # 1. 헤더
@@ -330,11 +311,11 @@ class ModernAutoClicker:
         f_coord = tk.Frame(self.grp_pos, bg="white")
         f_coord.pack(fill="x", pady=5)
         tk.Label(f_coord, text="X:", bg="white").pack(side="left")
-        tk.Entry(f_coord, textvariable=self.var_fixed_x, width=6, relief="solid", bd=1,
-                 validate="key", validatecommand=self.vcmd_int).pack(side="left", padx=2)
+        
+        tk.Entry(f_coord, textvariable=self.var_fixed_x, width=6, relief="solid", bd=1).pack(side="left", padx=2)
+        
         tk.Label(f_coord, text="Y:", bg="white").pack(side="left", padx=5)
-        tk.Entry(f_coord, textvariable=self.var_fixed_y, width=6, relief="solid", bd=1,
-                 validate="key", validatecommand=self.vcmd_int).pack(side="left", padx=2)
+        tk.Entry(f_coord, textvariable=self.var_fixed_y, width=6, relief="solid", bd=1).pack(side="left", padx=2)
         
         self.btn_pick = tk.Button(f_coord, text="Pick (1s)", command=self.pick_location_countdown, 
                                   bg="#e1e1e1", relief="flat", font=("Malgun Gothic", 8))
@@ -350,14 +331,15 @@ class ModernAutoClicker:
         self.lbl_btn.pack(side="left")
         self.cb_btn = ttk.Combobox(f_c1, textvariable=self.var_click_btn, values=["Left", "Right"], state="readonly", width=8)
         self.cb_btn.pack(side="right")
-        self.cb_btn.bind("<<ComboboxSelected>>", lambda e: self.root.focus_set()) # [New] 선택 시 포커스 해제
+        
+        self.cb_btn.bind("<<ComboboxSelected>>", lambda e: self.root.focus_set())
 
         f_c2 = tk.Frame(self.grp_click, bg="white")
         f_c2.pack(fill="x", pady=2)
         self.lbl_speed = tk.Label(f_c2, text="Speed:", bg="white")
         self.lbl_speed.pack(side="left")
-        self.ent_speed = tk.Entry(f_c2, textvariable=self.var_speed, width=8, relief="solid", bd=1,
-                                  validate="key", validatecommand=self.vcmd_float)
+        
+        self.ent_speed = tk.Entry(f_c2, textvariable=self.var_speed, width=8, relief="solid", bd=1)
         self.ent_speed.pack(side="right")
         ToolTip(self.ent_speed, "tip_speed", self.current_lang)
 
@@ -371,8 +353,7 @@ class ModernAutoClicker:
         self.lbl_add = tk.Label(f_rnd, text="Add:", bg="white")
         self.lbl_add.pack(side="left")
         
-        self.ent_random = tk.Entry(f_rnd, textvariable=self.var_random_max, width=8, relief="solid", bd=1,
-                                   validate="key", validatecommand=self.vcmd_float)
+        self.ent_random = tk.Entry(f_rnd, textvariable=self.var_random_max, width=8, relief="solid", bd=1)
         self.ent_random.pack(side="right")
         ToolTip(self.ent_random, "tip_random", self.current_lang)
 
@@ -389,13 +370,15 @@ class ModernAutoClicker:
         self.btn_pause.pack(fill="x", ipady=5)
 
     def apply_language(self, event=None):
-        # [New] 콤보박스 선택 직후 포커스를 루트(배경)로 돌려 하이라이트 제거
-        self.root.focus_set()
-
+        if event:
+             self.root.focus_set()
+             
         lang = self.current_lang.get()
         data = LANG_DATA[lang]
         
-        self.root.title(data["title"])
+        # [수정] 버전 정보(APP_VERSION)를 제목에 함께 표시
+        self.root.title(f"{data['title']} ({APP_VERSION})")
+        
         self.update_status_text()
         
         self.lbl_hotkey_title.config(text=data["hotkey_lbl"])
@@ -512,8 +495,11 @@ class ModernAutoClicker:
             if self.running:
                 if self.var_fixed_enabled.get():
                     try:
-                        self.mouse.position = (int(self.var_fixed_x.get()), int(self.var_fixed_y.get()))
-                    except: pass
+                        fx = int(self.var_fixed_x.get())
+                        fy = int(self.var_fixed_y.get())
+                        self.mouse.position = (fx, fy)
+                    except ValueError:
+                        pass 
 
                 btn_str = self.var_click_btn.get()
                 btn = Button.right if btn_str == "Right" else Button.left
@@ -521,12 +507,18 @@ class ModernAutoClicker:
                 
                 try:
                     base = float(self.var_speed.get())
-                    if self.var_random_enabled.get():
-                        add = random.uniform(0, float(self.var_random_max.get()))
-                        time.sleep(base + add)
-                    else:
-                        time.sleep(base)
-                except: time.sleep(0.1)
+                except ValueError:
+                    base = 0.1
+
+                if self.var_random_enabled.get():
+                    try:
+                        rnd_max = float(self.var_random_max.get())
+                    except ValueError:
+                        rnd_max = 0.1
+                    add = random.uniform(0, rnd_max)
+                    time.sleep(base + add)
+                else:
+                    time.sleep(base)
             else:
                 time.sleep(0.01)
 
@@ -549,7 +541,7 @@ class ModernAutoClicker:
             "fixed_pos_enabled": self.var_fixed_enabled.get(),
             "fixed_x": self.var_fixed_x.get(),
             "fixed_y": self.var_fixed_y.get(),
-            "geometry": self.root.geometry() # [New] 종료 시 현재 위치 저장
+            "geometry": self.root.geometry()
         }
         self.config_mgr.save(data)
         self.program_running = False
